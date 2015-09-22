@@ -8,13 +8,25 @@
 /******** Lookup table ********/
 #define LENGTH 256 // Length of the wave lookup table
 byte wave[LENGTH]; // Storage for waveform
+int sensorPin = A0;
+//notes for the song zelda - lost woods
+//song starts as FAB FAB FABED BCBGE DEGE
+int f_note_hz = 349;
+int a_note_hz = 440;
+int b_note_hz = 494;
+int e_note_hz = 330;;
+int d_note_hz = 294;
+int c_note_hz = 262;
+int g_note_hz = 392;
 
 void setup() {
-
+Serial.begin(9600);
 /* Populate the waveform table with a sine wave */
 for (int i=0; i<LENGTH; i++) { // Step across wave table
    float v = (AMP*sin((PI2/LENGTH)*i)); // Compute value
    wave[i] = int(v+OFFSET); // Store value as integer
+   Serial.println("Setting the waveform table to the below value");
+   Serial.println(wave[i]);
  }
 
 /****Set timer1 for 8-bit fast PWM output ****/
@@ -28,11 +40,22 @@ for (int i=0; i<LENGTH; i++) { // Step across wave table
  TCCR2A = 0; // No options in control register A
  TCCR2B = (1 << CS21); // Set prescaler to divide by 8
  TIMSK2 = (1 << OCIE2A); // Call ISR when TCNT2 = OCRA2
- OCR2A = 32; // Set frequency of generated wave
+ OCR2A = 128; // Set frequency of generated wave
  sei(); // Enable interrupts to generate waveform!
 }
 
+int find_ocr2a_from_freq(int frequency)
+/* Takes a frequency integer as input, and 
+	outputs the correct value of OCR2A to generate 
+	the waveform of that frequency*/
+{
+	//tcnt2 rate/(ocr2a val * wavetable length)
+	int ocr2a_val = (2000000)/(frequency * 256);
+	return ocr2a_val;
+}      
+
 void loop() { // Nothing to do!
+//Serial.println(analogRead(sensorPin));
 }
 
 /******** Called every time TCNT2 = OCR2A ********/
