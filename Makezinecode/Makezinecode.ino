@@ -9,7 +9,15 @@
 #define LENGTH 256 // Length of the wave lookup table
 byte wave[LENGTH]; // Storage for waveform
 
+unsigned long time = millis();
+int bpm = 240;
+int control = 50;
+
+void play_note(int beats, int input);
+
+
 void setup() {
+  Serial.begin(9600);
 
 /* Populate the waveform table with a sine wave */
 for (int i=0; i<LENGTH; i++) { // Step across wave table
@@ -28,11 +36,51 @@ for (int i=0; i<LENGTH; i++) { // Step across wave table
  TCCR2A = 0; // No options in control register A
  TCCR2B = (1 << CS21); // Set prescaler to divide by 8
  TIMSK2 = (1 << OCIE2A); // Call ISR when TCNT2 = OCRA2
- OCR2A = 7; // Set frequency of generated wave
+ OCR2A = 71; // Set frequency of generated wave
  sei(); // Enable interrupts to generate waveform!
 }
 
 void loop() { // Nothing to do!
+  play_note(4, 40);
+  play_note(1, 47);
+  play_note(1,255);
+  play_note(1, 47);
+  play_note(1,255);
+  play_note(4, 45);
+  play_note(1, 53);
+  play_note(1,255);
+  play_note(1, 53);
+  play_note(1,255);
+  play_note(2, 60);
+  play_note(2, 53);
+  play_note(2, 47);
+  play_note(2, 45);
+  play_note(1, 40);
+  play_note(1, 40);
+  play_note(1, 40);
+  play_note(1, 40);
+  
+  
+  /*
+  if (millis() - time >= 100) {
+    OCR2A++  ;
+    time = millis();
+  }
+  Serial.println(OCR2A);
+  if (OCR2A <= 10) {
+    OCR2A = 71;
+  }*/
+}
+
+void play_note(int beats, int input) {
+  long duration = 1000L*60*beats/bpm;
+  Serial.print("duration = ");
+  Serial.println(duration);
+  OCR2A = input;
+  unsigned long start = millis();
+  while (millis() - start <= duration) {
+  }
+  OCR2A = 255;
 }
 
 /******** Called every time TCNT2 = OCR2A ********/
