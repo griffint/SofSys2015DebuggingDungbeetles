@@ -15,26 +15,42 @@ float speed_multiplier; //calculated using input from the tempo pot, used to det
 float octave_adjuster; //calculated using input from the pitch pot, used to determine pitch of notes playback
 
 void play_note(int beats, int input);
-int little_bee_beats[18] = {4,1,1,1,1,4,1,1,1,1,2,2,2,2,1,1,1,1};
-int little_bee_notes[18] = {40,47,255,47,255,45,53,255,60,53,47,45,40,40,40,40};
-int lost_woods_beats[] = {2,2,4,2,2,4,2,2,2,2,4/*11 notes in*/,2,2,2,2,8,2,2,2,8,/*end of first line*/
-                          2,2,4,2,2,4,/*end of 1st measure 2nd line*/ 
+int little_bee_beats[] = {4,1,1,1,1,4,1,1,1,1,2,2,2,2,1,1,1,1,420};
+int little_bee_notes[] = {40,47,255,47,255,45,53,255,60,53,47,45,40,40,40,40};
+int lost_woods_beats[] = {/*start first line*/2,2,4,2,2,4,/*end first measure*/
+                            2,2,2,2,4,2,2,/*end 2nd measure*/
+                            2,2,8,2,2,2,8,/*end of first line*/
+                            2,2,4,2,2,4,/*end of 1st measure 2nd line*/ 
                             2,2,2,2,4,2,2,2,2,8,2,2,2,8,/*end of 2nd line*/
                             2,2,4,2,2,4,/*end 1st measure*/
                             2,2,8,/*end 2nd measure*/
-                            2,2,4,2,2,4,
-                            2,2,8,2,2,4,2,2,4,2,2};
+                            2,2,4,2,2,4, /*end 3rd measure*/
+                            2,2,8,/*end 3rd line*/
+                            2,2,4,2,2,4,/*end 1st measure*/
+                            2,2,8,/*end 2nd measure*/
+                            2,2,2,2,2,2,2,2,/*end 3rd measure*/
+                            2,2,2,2,2,2,1,2,1,/*end 4th line*/
+                            16,/*end 1st mearues*/
+                            4,2,2,2,2,4,/*end last measure last line*/
+                            420
+                            };
 
-int lost_woods_notes[] = {45, 36, 32, 45, 36, 32, 45, 36, 32, 24, 27,/*11 in*/ 32, 30, 32, 40, 47, //16 per
-                          53, 47, 40, 47,/*end of first line*/ 
+int lost_woods_notes[] = {45, 36, 32, 45, 36, 32, /*end first measure*/
+                          45, 36, 32, 24, 27, 32, 30, /*end 2nd measure*/
+                          32, 40, 47, 53, 47, 40, 47,/*end of first line*/ 
                           45, 36, 32, 45, 36, 32,/*end of 1st measure 2nd line*/
                           45, 36, 32, 24, 27, 32, 
                           30, 24, 32, 40, 32, 40, 53, 47,/*end of 2nd line*/
-                          45, 40, 36, 32, 30, 27,/*end 1st measure*/
-                          24, 22, 40, /*end 2nd measure*/
-                          36, 32, 30, 27, 24, 36,/*end 3rd measure*/
-                          60, 32, 53, 60, 47, 53, 45, 47, 32, 
-                          60, 36, 32}; //67 notes long
+                          53, 47, 45, 40, 36, 32,/*end 1st measure*/
+                          30, 32, 47, /*end 2nd measure*/
+                          45, 40, 36, 32, 30, 27,/*end 3rd measure*/
+                          24, 22, 20,/*end 3rd line*/
+                          53, 47, 45, 40, 36, 32,/*end 1st measure*/
+                          30, 32, 47, /*end 2nd measure*/
+                          45, 47, 36, 40, 32, 36, 30, 32, /*end 3rd measure*/
+                          27, 30, 24, 27, 22, 24, 32, 30, 36, /*end 4th line*/
+                          32, 455, 24, 24, 24, 24, 455
+                          }; //67 notes long
                           
 int little_bee_array_length = 18; //set to length of the song array
 int lost_woods_array_length = 66; //set to length of the song array
@@ -71,25 +87,27 @@ for (int i=0; i<LENGTH; i++) { // Step across wave table
 int i;
 
 void loop() { 
-  
+  i = 0;
 if (which_song == 0){
-  for (i=0; i<little_bee_array_length; i++) {
+  while (little_bee_beats[i] != 420) {
     //serial read for both tempo and pitch here, will return a val from 0-1023
     int analog_tempo = analogRead(tempo_pin);
     int analog_pitch = analogRead(pitch_pin);
     //need to adjust those analog readings to be reasonable values to input to play_note
     //we want the analog_tempo to be somewhere between 0 and 4, so divide by 256.0
     play_note(little_bee_beats[i], little_bee_notes[i], (analog_tempo/256.0), (analog_pitch/512.0));
+    i+=1;
   }
 }
 else {
-  for (i=0; i<lost_woods_array_length; i++) {
+  while (lost_woods_beats[i] != 420) {
     //serial read for both tempo and pitch here, will return a val from 0-1023
     int analog_tempo = analogRead(tempo_pin);
     int analog_pitch = analogRead(pitch_pin);
     //need to adjust those analog readings to be reasonable values to input to play_note
     //we want the analog_tempo to be somewhere between 0 and 4, so divide by 256.0
     play_note(lost_woods_beats[i], lost_woods_notes[i], (analog_tempo/256.0), (analog_pitch/512.0));
+    i+=1;
   }
 }
 }
