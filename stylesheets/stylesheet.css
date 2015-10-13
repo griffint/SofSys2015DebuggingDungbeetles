@@ -221,6 +221,11 @@ dl dd {
   font-style: italic;
 }
 
+iframe {
+  display: block;
+  margin: 0 auto;
+}
+
 dl p {
   padding-left: 20px;
   font-style: italic;

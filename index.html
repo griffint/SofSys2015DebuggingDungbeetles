@@ -10,7 +10,7 @@
 
     <title>Sofsys2015debuggingdungbeetles</title>
   </head>
-  
+
   <body>
 
     <!-- HEADER -->
@@ -34,24 +34,33 @@
         <h3>
 <a id="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages" aria-hidden="true"><span class="octicon octicon-link"></span></a>Summary</h3>
 
-<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras in diam quis arcu condimentum porttitor. Proin maximus urna ac elit vestibulum, eget imperdiet nibh viverra. Phasellus nibh risus, blandit malesuada vehicula in, ornare rutrum leo. Vestibulum vestibulum risus porttitor nunc ultricies finibus. Donec tempor tristique pretium. Sed ac arcu sapien. Ut suscipit nulla enim, et tempor libero molestie ac. Donec nec interdum ligula. Donec at pellentesque urna, sed lobortis leo. Pellentesque odio metus, suscipit vehicula ante vitae, elementum tempor enim.</p>
+<p>The goal of our project was to build an Arduino based synthesizer using PWM waves. Our finished product is a synthesizer that can play 2 songs on repeat. It also has 2 potentiometer inputs that allow the user to adjust both the tempo and pitch of the song while it is being played. Videos of our working product can be seen below.</p>
 
 <h3>
 <a id="designer-templates" class="anchor" href="#designer-templates" aria-hidden="true"><span class="octicon octicon-link"></span></a>Background</h3>
 
-<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris gravida, augue eget pretium ullamcorper, nisi purus sagittis lacus, dapibus blandit turpis tellus non purus. Morbi et lectus vitae sapien consequat posuere. Vivamus ac aliquam tellus. Duis nulla neque, consectetur non mollis ac, tempor id nulla. Duis ut tincidunt augue. Proin porta iaculis sapien efficitur tempus. Morbi egestas lacinia laoreet. Pellentesque at malesuada est, a posuere enim. Quisque a quam vitae sapien iaculis luctus eget non orci. Donec volutpat orci erat, id rhoncus est rutrum vitae. Maecenas condimentum vel nunc at consectetur. Fusce ac condimentum mauris, at iaculis nisi. Nunc fermentum massa et ex hendrerit, eu porta metus lobortis. Aliquam ac sollicitudin lacus, quis aliquet libero. Suspendisse vitae ante fringilla, ullamcorper sapien eget, sagittis arcu. Morbi lacinia, velit vel facilisis pharetra, quam neque tempor felis, et lobortis mauris magna at quam.</p>
+<p>PWM waves can be generated in two ways, one using an R2R resistor array (the hardware method), the other by manipulating the timer chips on the Arduino (the software method). Our team chose the software method, using <a href="http://makezine.com/projects/make-35/advanced-arduino-sound-synthesis/">this Make Magazine article</a> as reference. The process for outputting the PWM is two-fold: sine value generation and match timer value to sine value. Once the PWM waves are generated, changing its duty cycle will change the frequency of the resulting waves, thus allowing different notes to be outputted.
+Using the frequency to note conversation table provided in the Make Magazine article, we were able to hard code individual notes of a song as an array. Each loop in our program reads a note in the array entry and its corresponding duration, checks the potentiometer states, and outputs the note to the speaker.</p>
 
 <h3>
 <a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span class="octicon octicon-link"></span></a>Team Process</h3>
 
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+<p>For the first sprint, we struggled a little bit getting the circuit working. We spent a lot of time testing our circuit using an oscilloscope. When the circuit still didn’t work correctly, we got a transistor from Allen and rewired our entire circuit. After that, things worked like magic. From then on, things progressed pretty quickly. During the second sprint, we implemented a function that would take in a frequency and a time, playing that note for that duration. We managed to hard-code Little Bee, a classic Chinese children’s song (video available below).  For our last sprint, we decided to take the project further by implementing tempo and pitch variation. The original plan was to get a four button pad , two dedicated to tempo and two dedicated to pitch. As we didn’t end up acquiring the pad, we still successfully achieved our goal with two potentiometers. In the end, we could play a song and modify the speed and pitch in real time.
+<iframe width="420" height="315"
+src="https://www.youtube.com/embed/bh76WBY5g0M">
+</iframe>
+</p>
 
 <h3>
 <a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Contributors</h3>
 
 <!--<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor’s GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>-->
 
-<p> Griffin Tschurwald, Elena Shaw, Jack Fan, Jasper Chen
+<p> 
+We are students taking Software Systems at Olin College of Engineering in Needham, Massachusetts.
+<br>
+<br>
+<a href="https://github.com/griffint/">Griffin Tschurwald</a>, <a href="https://github.com/eshaw2/">Elena Shaw</a>, <a href="https://github.com/jackfan108">Jack Fan</a>, <a href="https://github.com/jasper-chen">Jasper Chen</a>
 </p>
 <!--<h3>
 <a id="support-or-contact" class="anchor" href="#support-or-contact" aria-hidden="true"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
