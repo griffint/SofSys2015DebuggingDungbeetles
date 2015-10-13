@@ -10,10 +10,39 @@
 byte wave[LENGTH]; // Storage for waveform
 
 unsigned long time = millis();
-int bpm = 240;
-int control = 50;
+int bpm = 240; //number of beats per minute, where each beat is a quarter note
+float speed_multiplier; //calculated using input from the tempo pot, used to determine speed of playback
+float octave_adjuster; //calculated using input from the pitch pot, used to determine pitch of notes playback
 
 void play_note(int beats, int input);
+int little_bee_beats[18] = {4,1,1,1,1,4,1,1,1,1,2,2,2,2,1,1,1,1};
+int little_bee_notes[18] = {40,47,255,47,255,45,53,255,60,53,47,45,40,40,40,40};
+int lost_woods_beats[] = {2,2,4,2,2,4,2,2,2,2,4/*11 notes in*/,2,2,2,2,8,2,2,2,8,/*end of first line*/
+                          2,2,4,2,2,4,/*end of 1st measure 2nd line*/ 
+                            2,2,2,2,4,2,2,2,2,8,2,2,2,8,/*end of 2nd line*/
+                            2,2,4,2,2,4,/*end 1st measure*/
+                            2,2,8,/*end 2nd measure*/
+                            2,2,4,2,2,4,
+                            2,2,8,2,2,4,2,2,4,2,2};
+
+int lost_woods_notes[] = {45, 36, 32, 45, 36, 32, 45, 36, 32, 24, 27,/*11 in*/ 32, 30, 32, 40, 47, //16 per
+                          53, 47, 40, 47,/*end of first line*/ 
+                          45, 36, 32, 45, 36, 32,/*end of 1st measure 2nd line*/
+                          45, 36, 32, 24, 27, 32, 
+                          30, 24, 32, 40, 32, 40, 53, 47,/*end of 2nd line*/
+                          45, 40, 36, 32, 30, 27,/*end 1st measure*/
+                          24, 22, 40, /*end 2nd measure*/
+                          36, 32, 30, 27, 24, 36,/*end 3rd measure*/
+                          60, 32, 53, 60, 47, 53, 45, 47, 32, 
+                          60, 36, 32}; //67 notes long
+                          
+int little_bee_array_length = 18; //set to length of the song array
+int lost_woods_array_length = 66; //set to length of the song array
+int which_song = 1; //this controls what song to play. 0=little bee, 1=lost woods
+
+//setup the analog read pin ints
+int tempo_pin = 0;
+int pitch_pin = 2;
 
 
 void setup() {
@@ -39,54 +68,54 @@ for (int i=0; i<LENGTH; i++) { // Step across wave table
  OCR2A = 71; // Set frequency of generated wave
  sei(); // Enable interrupts to generate waveform!
 }
+int i;
 
-void loop() { // Nothing to do!
-  play_note(4, 40);
-  play_note(1, 47);
-  play_note(1,255);
-  play_note(1, 47);
-  play_note(1,255);
-  play_note(4, 45);
-  play_note(1, 53);
-  play_note(1,255);
-  play_note(1, 53);
-  play_note(1,255);
-  play_note(2, 60);
-  play_note(2, 53);
-  play_note(2, 47);
-  play_note(2, 45);
-  play_note(1, 40);
-  play_note(1, 40);
-  play_note(1, 40);
-  play_note(1, 40);
+void loop() { 
   
-  
-  /*
-  if (millis() - time >= 100) {
-    OCR2A++  ;
-    time = millis();
+if (which_song == 0){
+  for (i=0; i<little_bee_array_length; i++) {
+    //serial read for both tempo and pitch here, will return a val from 0-1023
+    int analog_tempo = analogRead(tempo_pin);
+    int analog_pitch = analogRead(pitch_pin);
+    //need to adjust those analog readings to be reasonable values to input to play_note
+    //we want the analog_tempo to be somewhere between 0 and 4, so divide by 256.0
+    play_note(little_bee_beats[i], little_bee_notes[i], (analog_tempo/256.0), (analog_pitch/512.0));
   }
-  Serial.println(OCR2A);
-  if (OCR2A <= 10) {
-    OCR2A = 71;
-  }*/
+}
+else {
+  for (i=0; i<lost_woods_array_length; i++) {
+    //serial read for both tempo and pitch here, will return a val from 0-1023
+    int analog_tempo = analogRead(tempo_pin);
+    int analog_pitch = analogRead(pitch_pin);
+    //need to adjust those analog readings to be reasonable values to input to play_note
+    //we want the analog_tempo to be somewhere between 0 and 4, so divide by 256.0
+    play_note(lost_woods_beats[i], lost_woods_notes[i], (analog_tempo/256.0), (analog_pitch/512.0));
+  }
+}
 }
 
-void play_note(int beats, int input) {
-  long duration = 1000L*60*beats/bpm;
+/* This function will play a given note for a given duration of time 
+    int beats is how many 16th notes the note will play for
+    int input is the OCR2A register value that will play a certain frequency
+    float speed_multiplier is a multiplied adjustment to the tempo
+    float octave_adjsuter is a multiplied adjustment to the frequency of each note
+*/
+void play_note(int beats, int input, float speed_multiplier, float octave_adjuster) {
+  long duration = (1000L*60*beats/bpm)/speed_multiplier;
   Serial.print("duration = ");
   Serial.println(duration);
-  OCR2A = input;
+  int ocr2aval = input * octave_adjuster;
+  OCR2A = ocr2aval;
   unsigned long start = millis();
   while (millis() - start <= duration) {
   }
-  OCR2A = 255;
+  OCR2A = 455; //set this to play a very low note in between notes to simulate silence
 }
 
 /******** Called every time TCNT2 = OCR2A ********/
 ISR(TIMER2_COMPA_vect) { // Called when TCNT2 == OCR2A
  static byte index=0; // Points to each table entry
  OCR1AL = wave[index++]; // Update the PWM output
- //asm(“NOP;NOP”); // Fine tuning
+ //asm(“NOP;NOP”); // Fine tuning -- using this causes error everytime
  TCNT2 = 6; // Timing to compensate for ISR run time
 }
