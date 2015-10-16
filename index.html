@@ -41,6 +41,7 @@
 
 <p>PWM waves can be generated in two ways, one using an R2R resistor array (the hardware method), the other by manipulating the timer chips on the Arduino (the software method). Our team chose the software method, using <a href="http://makezine.com/projects/make-35/advanced-arduino-sound-synthesis/">this Make Magazine article</a> as reference. The process for outputting the PWM is two-fold: sine value generation and match timer value to sine value. Once the PWM waves are generated, changing its duty cycle will change the frequency of the resulting waves, thus allowing different notes to be outputted.
 Using the frequency to note conversation table provided in the Make Magazine article, we were able to hard code individual notes of a song as an array. Each loop in our program reads a note in the array entry and its corresponding duration, checks the potentiometer states, and outputs the note to the speaker.
+<br>
 <iframe width="420" height="315"
 src="https://www.youtube.com/embed/sHcZ_AlMx1k">
 </iframe>
@@ -55,8 +56,13 @@ src="https://www.youtube.com/embed/8C0Ud0uL7mw">
 <a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span class="octicon octicon-link"></span></a>Team Process</h3>
 
 <p>For the first sprint, we struggled a little bit getting the circuit working. We spent a lot of time testing our circuit using an oscilloscope. When the circuit still didn’t work correctly, we got a transistor from Allen and rewired our entire circuit. After that, things worked like magic. From then on, things progressed pretty quickly. During the second sprint, we implemented a function that would take in a frequency and a time, playing that note for that duration. We managed to hard-code Little Bee, a classic Chinese children’s song (video available below).  For our last sprint, we decided to take the project further by implementing tempo and pitch variation. The original plan was to get a four button pad , two dedicated to tempo and two dedicated to pitch. As we didn’t end up acquiring the pad, we still successfully achieved our goal with two potentiometers. In the end, we could play a song and modify the speed and pitch in real time.
+<br>
 <iframe width="420" height="315"
 src="https://www.youtube.com/embed/bh76WBY5g0M">
+</iframe>
+<br>
+<iframe width="420" height="315"
+src="https://www.youtube.com/embed/Y-I_Y9agnUc">
 </iframe>
 </p>
 
