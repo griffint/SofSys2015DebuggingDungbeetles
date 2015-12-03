@@ -2,6 +2,10 @@
 Software Systems 2015
 This program will take a jpg file and return an array of pointers
 to RGB value scanlines, as outlined in the ijg.org library
+
+compile it with 
+gcc extract_pixels.c -ljpeg -o extract_pixels
+on a unix system
 */
 
 #include <stdio.h>
@@ -14,7 +18,7 @@ to RGB value scanlines, as outlined in the ijg.org library
  * You may also wish to include "jerror.h".
  */
 
-#include "jpeglib.h"
+#include "jpeg-9a/jpeglib.h"
 
 /*
  * <setjmp.h> is used for the optional error recovery mechanism shown in
@@ -22,6 +26,34 @@ to RGB value scanlines, as outlined in the ijg.org library
  */
 
 #include <setjmp.h>
+
+
+struct my_error_mgr {
+  struct jpeg_error_mgr pub;	/* "public" fields */
+
+  jmp_buf setjmp_buffer;	/* for return to caller */
+};
+
+typedef struct my_error_mgr * my_error_ptr;
+
+/*
+ * Here's the routine that will replace the standard error_exit method:
+ */
+
+METHODDEF(void)
+my_error_exit (j_common_ptr cinfo)
+{
+  /* cinfo->err really points to a my_error_mgr struct, so coerce pointer */
+  my_error_ptr myerr = (my_error_ptr) cinfo->err;
+
+  /* Always display the message. */
+  /* We could postpone this until after returning, if we chose. */
+  (*cinfo->err->output_message) (cinfo);
+
+  /* Return control to the setjmp point */
+  longjmp(myerr->setjmp_buffer, 1);
+}
+
 
 GLOBAL(int)
 read_JPEG_file (char * filename)
@@ -46,7 +78,7 @@ read_JPEG_file (char * filename)
    * requires it in order to read binary files.
    */
 
-  if ((infile = fopen("mad_max.jpg", "rb")) == NULL) {
+  if ((infile = fopen(filename, "rb")) == NULL) {
     fprintf(stderr, "can't open %s\n", filename);
     return 0;
   }
@@ -119,7 +151,8 @@ read_JPEG_file (char * filename)
      */
     (void) jpeg_read_scanlines(&cinfo, buffer, 1);
     /* Assume put_scanline_someplace wants a pointer and sample count. */
-    put_scanline_someplace(buffer[0], row_stride);
+    //put_scanline_someplace(buffer[0], row_stride);
+    printf(buffer[0]);
   }
 
   /* Step 7: Finish decompression */
@@ -147,4 +180,8 @@ read_JPEG_file (char * filename)
 
   /* And we're done! */
   return 1;
+}
+
+void main(){
+read_JPEG_file("mad_max.jpg");
 }
