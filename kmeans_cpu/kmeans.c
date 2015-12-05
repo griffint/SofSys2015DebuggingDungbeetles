@@ -10,6 +10,8 @@
 array of char R, G and B values*/
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 typedef struct {
 	unsigned char r;
@@ -24,7 +26,16 @@ typedef struct {
 	else if ()
 }*/
 
-Centroid *randomizeCentroid(unsigned char r, unsigned char g, unsigned char b){
+Centroid *randomizeCentroid(){
+	unsigned char r, g, b;
+	time_t t;
+	int n = 3;
+	/* Initializes random number generator */
+	srand((unsigned) time(&t));
+	r = rand() % 255;
+	g = rand() % 255;
+	b = rand() % 255;
+
 	Centroid *centroid = (Centroid *) malloc (sizeof (Centroid));
 	centroid->r = r;
 	centroid->g = g;
@@ -35,14 +46,17 @@ Centroid *randomizeCentroid(unsigned char r, unsigned char g, unsigned char b){
 int main()
 {
 	int i, j, k;
-	for (i = 0; )
 
 	int numcentroids = 5; /* Centroids */
 
 	int numfeatures = 3; /* RGB */
 	int iterations = 0;
 
+	Centroid *centroid = randomizeCentroid();
 
+	printf("%d\n",centroid->r);
+	printf("%d\n",centroid->g);
+	printf("%d\n",centroid->b);
 
 	/* number of ks */
 
