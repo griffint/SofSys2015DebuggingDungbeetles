@@ -19,17 +19,11 @@ typedef struct {
 	unsigned char b;
 } Centroid;
 
-/*int shouldstop(oldcentroids, centroids, iterations){
-	if (iterations > MAX_ITERATIONS){
-		return 0;
-	}
-	else if ()
-}*/
-
 Centroid *randomizeCentroid(){
 	unsigned char r, g, b;
 	time_t t;
 	int n = 3;
+	
 	/* Initializes random number generator */
 	srand((unsigned) time(&t));
 	r = rand() % 255;
