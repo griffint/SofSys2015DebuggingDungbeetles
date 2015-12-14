@@ -9,14 +9,14 @@
 #include <opencv2/highgui/highgui.hpp>
 #include "opencv2/cudaarithm.hpp"
 
-#define CLUSTER_NUM       20
-#define ITERATION         10
+//#define CLUSTER_NUM       20
+//#define ITERATION         10
 
 using namespace cv;
 using namespace std;
 using namespace cuda;
 
-int ROWS, COLS;
+int ROWS, COLS, CLUSTER_NUM, ITERATION;
 
 // generate a random RGB pixel as centroid
 Vec3b randomPixel() {
@@ -54,7 +54,11 @@ void updateCentroid(unsigned char** label, Vec3b* centroids, Mat original) {
         sum[i] = Vec3i(0, 0, 0);
     }
 
-    int count[CLUSTER_NUM] = { 0 }; // all elements 0
+     // all elements 0
+    int* count = new int[CLUSTER_NUM];
+    for (int i = 0; i < CLUSTER_NUM; i++) {
+        count[i] = 0;
+    }
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
             index = label[i][j];
@@ -90,6 +94,14 @@ Mat labelToImage(unsigned char** label, Vec3b* centroids, Mat image) {
 
 int main(int argc, char** argv)
 {
+    // check for correct input format
+    if (argc != 4) {
+        printf("usage: ./gpu_fix filename(without '.jpg') #clusters #iterations\n");
+        exit(-1);
+    }
+    string fn = argv[1];
+    CLUSTER_NUM = stoi(argv[2]);
+    ITERATION = stoi(argv[3]);
     // check version c++11 or c++98
     printf("c++ version: ");
     if( __cplusplus == 201103L ) std::cout << "C++11\n" ;
@@ -105,7 +117,7 @@ int main(int argc, char** argv)
     srand(1);
     //srand(time(NULL)); //reset the random seed for this particular run
     Mat h_image, h_image_final;
-    string fn = "tree";
+    //string fn = "tree";
     h_image = imread(fn + ".jpg", IMREAD_COLOR); // read the image
     if (!h_image.data) {
         printf("No image data \n");
@@ -172,7 +184,7 @@ int main(int argc, char** argv)
         // save this file
         //string fn = fn_head + to_string(k) + ".jpg";
         //cout << fn << endl;
-        //imwrite(fn,h_image_final);
+        imwrite(fn + "/" + fn + "_cpu.jpg",h_image_final);
 
         // update the centroid locations
         updateCentroid(h_label, h_centroids, h_image);

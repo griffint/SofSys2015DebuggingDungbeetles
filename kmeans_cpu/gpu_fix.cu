@@ -10,16 +10,16 @@
 #include <opencv2/highgui/highgui.hpp>
 #include "opencv2/cudaarithm.hpp"
 
-#define CLUSTER_NUM       20
-#define ITERATION         10
+//#define CLUSTER_NUM       20
+//#define ITERATION         10
 
 using namespace cv;
 using namespace std;
 using namespace cuda;
 
-int ROWS, COLS;
+int ROWS, COLS, CLUSTER_NUM, ITERATION;
 
-__global__ void GPU_mapToCluster(unsigned char * d_label, Vec3b* d_centroids, uchar* d_image_B, uchar* d_image_G, uchar* d_image_R, int ROWS, int COLS ) {
+__global__ void GPU_mapToCluster(unsigned char * d_label, Vec3b* d_centroids, uchar* d_image_B, uchar* d_image_G, uchar* d_image_R, int ROWS, int COLS , int CLUSTER_NUM) {
     int col = blockIdx.x;
     int row = threadIdx.x;
     int index = COLS * row + col;
@@ -42,7 +42,7 @@ __global__ void GPU_mapToCluster(unsigned char * d_label, Vec3b* d_centroids, uc
     d_label[index] = cluster;
 }
 
-__global__ void GPU_labelToImage (uchar* d_label, Vec3b* d_centroids, unsigned char* d_image_final_B, unsigned char* d_image_final_G, unsigned char* d_image_final_R, int COLS, int ROWS) {
+__global__ void GPU_labelToImage (uchar* d_label, Vec3b* d_centroids, unsigned char* d_image_final_B, unsigned char* d_image_final_G, unsigned char* d_image_final_R, int ROWS, int COLS, int CLUSTER_NUM) {
     int col = blockIdx.x;
     int row = blockIdx.y;
     int color = threadIdx.x;
@@ -93,8 +93,10 @@ void updateCentroid(uchar* label, Vec3b* centroids, Mat original) {
     for (int i = 0; i < CLUSTER_NUM; i++) {
         sum[i] = Vec3i(0, 0, 0);
     }
-
-    int count[CLUSTER_NUM] = { 0 }; // all elements 0
+    int* count = new int[CLUSTER_NUM];
+    for (int i = 0; i < CLUSTER_NUM; i++) {
+        count[i] = 0;
+    }
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
             cluster = label[i*COLS + j];
@@ -104,7 +106,6 @@ void updateCentroid(uchar* label, Vec3b* centroids, Mat original) {
             count[cluster]++;
         }
     }
-
     for (int i = 0; i < CLUSTER_NUM; i++) {
         if (count[i] == 0) {
             continue;
@@ -114,16 +115,27 @@ void updateCentroid(uchar* label, Vec3b* centroids, Mat original) {
         sum[i].val[2] /= count[i];
         centroids[i] = sum[i];
     }
+    delete[] count;
 }
 
 int main(int argc, char** argv)
 {
+    // check for correct input format
+    if (argc != 4) {
+        printf("usage: ./gpu_fix filename(without '.jpg') #clusters #iterations\n");
+        exit(-1);
+    }
+    string fn = argv[1];
+    CLUSTER_NUM = stoi(argv[2]);
+    ITERATION = stoi(argv[3]);
+
     // check version c++11 or c++98
     if( __cplusplus == 201103L ) std::cout << "C++11\n" ;
     else if( __cplusplus == 199711L ) std::cout << "C++98\n" ;
     else std::cout << "pre-standard C++\n" ;
 
-    
+
+
 
     printf("number of clusters: %i\n", CLUSTER_NUM);
     printf("number of iterations: %i\n", ITERATION);
@@ -136,7 +148,7 @@ int main(int argc, char** argv)
     srand(1);
     //srand(time(NULL)); //reset the random seed for this particular run
     Mat h_image, h_image_final;
-    string fn = "tree";
+    //string fn = "tree";
     h_image = imread(fn + ".jpg", IMREAD_COLOR); // read the image
     if (!h_image.data) {
         printf("No image data \n");
@@ -232,11 +244,11 @@ int main(int argc, char** argv)
         cudaMemcpy(d_centroids, h_centroids, CLUSTER_NUM * sizeof(Vec3b), cudaMemcpyHostToDevice);
 
         // map all pixels to cluster
-        GPU_mapToCluster<<<dim3(COLS), dim3(ROWS)>>>(d_label, d_centroids, d_image_B, d_image_G, d_image_R, ROWS, COLS);
+        GPU_mapToCluster<<<dim3(COLS), dim3(ROWS)>>>(d_label, d_centroids, d_image_B, d_image_G, d_image_R, ROWS, COLS, CLUSTER_NUM);
         //cudaDeviceSynchronize();
 
         // update the image to the cluster colors
-        GPU_labelToImage<<<dim3(COLS, ROWS), dim3(3)>>>(d_label, d_centroids, d_image_final_B, d_image_final_G, d_image_final_R, COLS, ROWS);
+        GPU_labelToImage<<<dim3(COLS, ROWS), dim3(3)>>>(d_label, d_centroids, d_image_final_B, d_image_final_G, d_image_final_R, ROWS, COLS, CLUSTER_NUM);
         //cudaDeviceSynchronize();
 
         // download the calculated image channels from GPU to CPU
@@ -246,11 +258,11 @@ int main(int argc, char** argv)
 
         //Merging the new channels into image
         merge(h_image_final_channel, 3, h_image_final);
-        //imwrite(fn+"/" + fn + "_gpu_fix" + to_string(k) + ".jpg",h_image_final);
+        imwrite(fn+"/" + fn + "_gpu_fix" + to_string(k) + ".jpg",h_image_final);
 
         // update the centroid locations
         // download the centroids and labels back to CPU
-        // cudaMemcpy(h_centroids, d_centroids, CLUSTER_NUM * sizeof(Vec3b), cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_centroids, d_centroids, CLUSTER_NUM * sizeof(Vec3b), cudaMemcpyDeviceToHost);
         cudaMemcpy(h_label, d_label, COLS * ROWS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
         updateCentroid(h_label, h_centroids, h_image);
