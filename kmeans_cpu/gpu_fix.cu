@@ -133,6 +133,7 @@ int main(int argc, char** argv)
     // check for correct input format
     if (argc != 4) {
         printf("usage: ./gpu_fix filename(without '.jpg') #clusters #iterations\n");
+        printf("image height has to be <= 1024\n");
         exit(-1);
     }
 
@@ -167,6 +168,10 @@ int main(int argc, char** argv)
     COLS = h_image.cols;
 
     printf("file size: %ix%i\n", COLS, ROWS);
+    if (ROWS > 1024) {
+        printf("image height > 1024 ... image height has to be <= 1024\n");
+        return -1;
+    }
 
     h_image_final.create(ROWS, COLS, CV_8UC1);
 

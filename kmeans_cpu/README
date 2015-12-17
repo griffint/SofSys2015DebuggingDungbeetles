@@ -1,0 +1,7 @@
+This project uses c++11, OpenCV 3.0 and CUDA 7.5 with 2.1 capability.
+We ran this on a NVS 4200M.
+Typing build will give you cpu and gpu_fix.
+"cpu" runs everything in serial whereas "gpu_fix" will strategically run certain tasks on the Nvidia GPU.
+***Note that the height of the input image for "gpu_fix" has to be less than 1024(for CUDA 2.1 capability), which is the minimun of the maximum number of threads per block and the maximum x dimension size of a thread block. Check your CUDA capability for this.
+"gpu_fix" is the working code that runs in parallel
+"gpu" is an intermediate testing script that doens't really work; it attemps to run the centroid averaging on the GPU as well. However the working version is entirely ported to "gpu_fix"
