@@ -17,7 +17,7 @@ using namespace cv;
 using namespace std;
 using namespace cuda;
 
-int ROWS, COLS, CLUSTER_NUM, ITERATION;
+int ROWS, COLS, CLUSTER_NUM, CLUSTER_MAX, ITERATION;
 
 __global__ void GPU_mapToCluster(unsigned char * d_label, Vec3b* d_centroids, uchar* d_image_B, uchar* d_image_G, uchar* d_image_R, int ROWS, int COLS , int CLUSTER_NUM) {
     int col = blockIdx.x;
@@ -44,8 +44,8 @@ __global__ void GPU_mapToCluster(unsigned char * d_label, Vec3b* d_centroids, uc
 
 __global__ void GPU_labelToImage (uchar* d_label, Vec3b* d_centroids, unsigned char* d_image_final_B, unsigned char* d_image_final_G, unsigned char* d_image_final_R, int ROWS, int COLS, int CLUSTER_NUM) {
     int col = blockIdx.x;
-    int row = blockIdx.y;
-    int color = threadIdx.x;
+    int row = threadIdx.x;
+    int color = blockIdx.y;
     int index_image = row*COLS + col;
     //int index_label = *((unsigned char*)((char*)d_label + row * pitch) + col);
     int index_label = d_label[index_image];
@@ -108,6 +108,7 @@ void updateCentroid(uchar* label, Vec3b* centroids, Mat original) {
     }
     for (int i = 0; i < CLUSTER_NUM; i++) {
         if (count[i] == 0) {
+            centroids[i] = randomPixel();
             continue;
         }
         sum[i].val[0] /= count[i];
@@ -237,38 +238,53 @@ int main(int argc, char** argv)
     //int* d_count;
     //cudaMalloc((void**) &d_count, CLUSTER_NUM * sizeof(int));
     //cudaMemcpy(d_count, h_count, CLUSTER_NUM * sizeof(int), cudaMemcpyHostToDevice);
+    CLUSTER_MAX = CLUSTER_NUM;
 
-    // the real k-means
-    for (int k = 0; k < ITERATION; k++) {
-        // copy from host to device 
-        cudaMemcpy(d_centroids, h_centroids, CLUSTER_NUM * sizeof(Vec3b), cudaMemcpyHostToDevice);
+    for (int c = 1; c <= CLUSTER_MAX; c++) {
+        CLUSTER_NUM = c;
+        for (int i = 0; i < c; i++) {
+            h_centroids[i] = randomPixel();
+            //printf("original %i : ", i);
+            //printf("%u, ", h_centroids[i].val[0]);
+            //printf("%u, ", h_centroids[i].val[1]);
+            //printf("%u\n", h_centroids[i].val[2]);
+        }
+        // the real k-means
+        for (int k = 0; k < ITERATION; k++) {
+            // copy from host to device 
+            cudaMemcpy(d_centroids, h_centroids, CLUSTER_NUM * sizeof(Vec3b), cudaMemcpyHostToDevice);
 
-        // map all pixels to cluster
-        GPU_mapToCluster<<<dim3(COLS), dim3(ROWS)>>>(d_label, d_centroids, d_image_B, d_image_G, d_image_R, ROWS, COLS, CLUSTER_NUM);
-        //cudaDeviceSynchronize();
+            // map all pixels to cluster
+            GPU_mapToCluster<<<dim3(COLS), dim3(ROWS)>>>(d_label, d_centroids, d_image_B, d_image_G, d_image_R, ROWS, COLS, CLUSTER_NUM);
+            //cudaDeviceSynchronize();
 
-        // update the image to the cluster colors
-        GPU_labelToImage<<<dim3(COLS, ROWS), dim3(3)>>>(d_label, d_centroids, d_image_final_B, d_image_final_G, d_image_final_R, ROWS, COLS, CLUSTER_NUM);
-        //cudaDeviceSynchronize();
+            // update the image to the cluster colors
+            GPU_labelToImage<<<dim3(COLS, 3), dim3(ROWS)>>>(d_label, d_centroids, d_image_final_B, d_image_final_G, d_image_final_R, ROWS, COLS, CLUSTER_NUM);
+            //cudaDeviceSynchronize();
 
-        // download the calculated image channels from GPU to CPU
-        cudaMemcpy(h_image_final_channel[0].data, d_image_final_B, ROWS * COLS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
-        cudaMemcpy(h_image_final_channel[1].data, d_image_final_G, ROWS * COLS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
-        cudaMemcpy(h_image_final_channel[2].data, d_image_final_R, ROWS * COLS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+            // download the calculated image channels from GPU to CPU
+            cudaMemcpy(h_image_final_channel[0].data, d_image_final_B, ROWS * COLS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+            cudaMemcpy(h_image_final_channel[1].data, d_image_final_G, ROWS * COLS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+            cudaMemcpy(h_image_final_channel[2].data, d_image_final_R, ROWS * COLS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-        //Merging the new channels into image
-        merge(h_image_final_channel, 3, h_image_final);
-        imwrite(fn+"/" + fn + "_gpu_fix" + to_string(k) + ".jpg",h_image_final);
+            //Merging the new channels into image
+            merge(h_image_final_channel, 3, h_image_final);
+            //imwrite(fn+"/" + fn + "_gpu_fix" + to_string(k) + ".jpg",h_image_final);
 
-        // update the centroid locations
-        // download the centroids and labels back to CPU
-        cudaMemcpy(h_centroids, d_centroids, CLUSTER_NUM * sizeof(Vec3b), cudaMemcpyDeviceToHost);
-        cudaMemcpy(h_label, d_label, COLS * ROWS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+            // update the centroid locations
+            // download the centroids and labels back to CPU
+            cudaMemcpy(h_centroids, d_centroids, CLUSTER_NUM * sizeof(Vec3b), cudaMemcpyDeviceToHost);
+            cudaMemcpy(h_label, d_label, COLS * ROWS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-        updateCentroid(h_label, h_centroids, h_image);
+            updateCentroid(h_label, h_centroids, h_image);
+        }
+        putText(h_image_final, to_string(c), Point(20, 20), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(200,200,250), 1, CV_AA);
+        //imwrite(fn + "/" + fn + "_gpu_fix_" + to_string(c) + ".jpg", h_image_final);
 
     }
-    imwrite(fn + "_gpu_fix" + ".jpg", h_image_final);
+    imwrite(fn + "_gpu_time.jpg", h_image_final);
+
+    
     //waitKey(0);
 
     // done recording time

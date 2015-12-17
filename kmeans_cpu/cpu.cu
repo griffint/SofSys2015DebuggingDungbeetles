@@ -16,7 +16,7 @@ using namespace cv;
 using namespace std;
 using namespace cuda;
 
-int ROWS, COLS, CLUSTER_NUM, ITERATION;
+int ROWS, COLS, CLUSTER_NUM, CLUSTER_MAX, ITERATION;
 
 // generate a random RGB pixel as centroid
 Vec3b randomPixel() {
@@ -71,6 +71,7 @@ void updateCentroid(unsigned char** label, Vec3b* centroids, Mat original) {
 
     for (int i = 0; i < CLUSTER_NUM; i++) {
         if (count[i] == 0) {
+            centroids[i] = randomPixel();
             continue;
         }
         //printf("normalize (sums/count):\n");
@@ -159,36 +160,49 @@ int main(int argc, char** argv)
 
     string fn_head = "test/test_";
 
-    // the real k-means
-    for (int k = 0; k < ITERATION; k++) {
-        // attemp to map all pixels to cluster
-        for (int i = 0; i < ROWS; i++) {
-            for (int j = 0; j < COLS; j++) {
-                h_label[i][j] = mapToCluster(h_image.at<Vec3b>(i,j), h_centroids);
+    CLUSTER_MAX = CLUSTER_NUM;
+    for (int c = 1; c <= CLUSTER_MAX; c++) {
+        
+        CLUSTER_NUM = c;
+        for (int i = 0; i < c; i++) {
+            h_centroids[i] = randomPixel();
+            //printf("original %i : ", i);
+            //printf("%u, ", h_centroids[i].val[0]);
+            //printf("%u, ", h_centroids[i].val[1]);
+            //printf("%u\n", h_centroids[i].val[2]);
+        }
+        // the real k-means
+        for (int k = 0; k < ITERATION; k++) {
+            // attemp to map all pixels to cluster
+            for (int i = 0; i < ROWS; i++) {
+                for (int j = 0; j < COLS; j++) {
+                    h_label[i][j] = mapToCluster(h_image.at<Vec3b>(i,j), h_centroids);
+                }
             }
+
+            // update the image to the cluster colors
+            h_image_final = labelToImage(h_label, h_centroids, h_image);
+
+
+            //display image
+            /* 
+            namedWindow("Iteration " + to_string(k), WINDOW_AUTOSIZE );
+            if(!h_image_final.empty()){
+                imshow("Iteration " + to_string(k), h_image_final);
+            }
+            waitKey(0);
+            */
+
+            // save this file
+            //string fn = fn_head + to_string(k) + ".jpg";
+            //cout << fn << endl;
+
+            // update the centroid locations
+            updateCentroid(h_label, h_centroids, h_image);
         }
-
-        // update the image to the cluster colors
-        h_image_final = labelToImage(h_label, h_centroids, h_image);
-
-
-        //display image
-        /*
-        namedWindow("Iteration " + to_string(k), WINDOW_AUTOSIZE );
-        if(!h_image_final.empty()){
-            imshow("Iteration " + to_string(k), h_image_final);
-        }
-        waitKey(0);
-        */
-
-        // save this file
-        //string fn = fn_head + to_string(k) + ".jpg";
-        //cout << fn << endl;
-        imwrite(fn + "/" + fn + "_cpu.jpg",h_image_final);
-
-        // update the centroid locations
-        updateCentroid(h_label, h_centroids, h_image);
+        //putText(h_image_final, to_string(c), Point(20, 20), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(50,50,100), 1, CV_AA);
+        //imwrite(fn + "/" + fn + "_cpu_" + to_string(c) + ".jpg",h_image_final);
     }
-    imwrite(fn + "_cpu.jpg", h_image_final);
+    imwrite(fn + "_cpu_time.jpg", h_image_final);
     return 0;
 }
