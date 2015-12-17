@@ -49,16 +49,18 @@ unsigned char mapToCluster(Vec3b pixel, Vec3b* centroids) {
 void updateCentroid(unsigned char** label, Vec3b* centroids, Mat original) {
 
     int index;
+    // use Vec3i(vector3 int) to hold a bigger number
     Vec3i sum[CLUSTER_NUM];
     for (int i = 0; i < CLUSTER_NUM; i++) {
         sum[i] = Vec3i(0, 0, 0);
     }
 
-     // all elements 0
+    // dynamically allocating memory because CLUSTER_NUM changes at run time
     int* count = new int[CLUSTER_NUM];
     for (int i = 0; i < CLUSTER_NUM; i++) {
         count[i] = 0;
     }
+    // the addition part of averaging
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
             index = label[i][j];
@@ -68,13 +70,13 @@ void updateCentroid(unsigned char** label, Vec3b* centroids, Mat original) {
             count[index]++;
         }
     }
-
+    // the division part of averaging
     for (int i = 0; i < CLUSTER_NUM; i++) {
+        // randomize pixel if no pixels are assigned to the cluster
         if (count[i] == 0) {
             centroids[i] = randomPixel();
             continue;
         }
-        //printf("normalize (sums/count):\n");
         sum[i].val[0] /= count[i];
         sum[i].val[1] /= count[i];
         sum[i].val[2] /= count[i];
@@ -86,7 +88,6 @@ Mat labelToImage(unsigned char** label, Vec3b* centroids, Mat image) {
     Mat result = image.clone();
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
-            //printf("%u", label[i][j]);
             result.at<Vec3b>(i,j) = centroids[label[i][j]];
         }
     }
@@ -100,23 +101,28 @@ int main(int argc, char** argv)
         printf("usage: ./gpu_fix filename(without '.jpg') #clusters #iterations\n");
         exit(-1);
     }
+
+    // read inputs from commandline
     string fn = argv[1];
     CLUSTER_NUM = stoi(argv[2]);
     ITERATION = stoi(argv[3]);
+
     // check version c++11 or c++98
     printf("c++ version: ");
     if( __cplusplus == 201103L ) std::cout << "C++11\n" ;
     else if( __cplusplus == 199711L ) std::cout << "C++98\n" ;
     else std::cout << "pre-standard C++\n" ;
 
+    // print image information to commandline
     printf("number of clusters: %i\n", CLUSTER_NUM);
     printf("number of iterations: %i\n", ITERATION);
     printf("mode: CPU\n");
 
 
-
-    srand(1);
-    //srand(time(NULL)); //reset the random seed for this particular run
+    // set random seed to a particular number to compare against GPU
+    //srand(1);
+    // randomize seed
+    srand(time(NULL));
     Mat h_image, h_image_final;
     //string fn = "tree";
     h_image = imread(fn + ".jpg", IMREAD_COLOR); // read the image
@@ -131,7 +137,7 @@ int main(int argc, char** argv)
 
     h_image_final.create(ROWS, COLS, CV_8UC1);
 
-    // split original image to RGB
+    // split original image to RGB channels
     Mat h_image_channel[3];
     split(h_image, h_image_channel);
     Mat h_image_final_channel[3];
@@ -142,13 +148,8 @@ int main(int argc, char** argv)
     //generate random pixel for centroid
 
     Vec3b* h_centroids = (Vec3b*) malloc(CLUSTER_NUM * sizeof(Vec3b));
-    
     for (int i = 0; i < CLUSTER_NUM; i++) {
         h_centroids[i] = randomPixel();
-        //printf("original %i : ", i);
-        //printf("%u, ", h_centroids[i].val[0]);
-        //printf("%u, ", h_centroids[i].val[1]);
-        //printf("%u\n", h_centroids[i].val[2]);
     }
     
 
@@ -158,22 +159,17 @@ int main(int argc, char** argv)
       h_label[i] = (unsigned char *) malloc(COLS * sizeof(unsigned char));
     }
 
-    string fn_head = "test/test_";
-
+    // loop through different numbers of clusters and produce an image 
     CLUSTER_MAX = CLUSTER_NUM;
     for (int c = 1; c <= CLUSTER_MAX; c++) {
-        
         CLUSTER_NUM = c;
+        // randomize centroid pixels
         for (int i = 0; i < c; i++) {
             h_centroids[i] = randomPixel();
-            //printf("original %i : ", i);
-            //printf("%u, ", h_centroids[i].val[0]);
-            //printf("%u, ", h_centroids[i].val[1]);
-            //printf("%u\n", h_centroids[i].val[2]);
         }
-        // the real k-means
+        // the real k-means: for a given number of clusters, update the centroid k times and output an image
         for (int k = 0; k < ITERATION; k++) {
-            // attemp to map all pixels to cluster
+            // loop through every pixel in the image
             for (int i = 0; i < ROWS; i++) {
                 for (int j = 0; j < COLS; j++) {
                     h_label[i][j] = mapToCluster(h_image.at<Vec3b>(i,j), h_centroids);
@@ -183,26 +179,23 @@ int main(int argc, char** argv)
             // update the image to the cluster colors
             h_image_final = labelToImage(h_label, h_centroids, h_image);
 
-
-            //display image
-            /* 
-            namedWindow("Iteration " + to_string(k), WINDOW_AUTOSIZE );
-            if(!h_image_final.empty()){
-                imshow("Iteration " + to_string(k), h_image_final);
-            }
-            waitKey(0);
-            */
-
-            // save this file
-            //string fn = fn_head + to_string(k) + ".jpg";
-            //cout << fn << endl;
-
             // update the centroid locations
             updateCentroid(h_label, h_centroids, h_image);
         }
-        //putText(h_image_final, to_string(c), Point(20, 20), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(50,50,100), 1, CV_AA);
-        //imwrite(fn + "/" + fn + "_cpu_" + to_string(c) + ".jpg",h_image_final);
+        // adding the number of iteration to the output image
+        putText(h_image_final, to_string(c), Point(20, 20), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(50,50,100), 1, CV_AA);
+        // writes to file for each iteration of image
+        imwrite(fn + "/" + fn + "_cpu_" + to_string(c) + ".jpg",h_image_final);
     }
     imwrite(fn + "_cpu_time.jpg", h_image_final);
     return 0;
 }
+
+//display image
+/*
+namedWindow("Iteration " + to_string(k), WINDOW_AUTOSIZE );
+if(!h_image_final.empty()){
+    imshow("Iteration " + to_string(k), h_image_final);
+}
+waitKey(0);
+*/
