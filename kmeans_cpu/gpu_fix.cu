@@ -47,7 +47,6 @@ __global__ void GPU_labelToImage (uchar* d_label, Vec3b* d_centroids, unsigned c
     int row = threadIdx.x;
     int color = blockIdx.y;
     int index_image = row*COLS + col;
-    //int index_label = *((unsigned char*)((char*)d_label + row * pitch) + col);
     int index_label = d_label[index_image];
 
     switch(color) {
@@ -61,10 +60,12 @@ __global__ void GPU_labelToImage (uchar* d_label, Vec3b* d_centroids, unsigned c
         d_image_final_R[index_image] = d_centroids[index_label].val[2];
         break;
       default :
-        printf("wtf there is a bug lol\n" );
+        printf("there is a bug lol\n" );
    }
 }
 
+// currently not updating centroids on GPU
+// worth looking into: may not be faster due to atomic addition for averaging
 __global__ void GPU_updateCentroid(Vec3b* d_centroids, Vec3i* d_centroids_new, int* d_count){
     int index = blockIdx.x;
     if (d_count[index] != 0) {
@@ -85,18 +86,22 @@ Vec3b randomPixel() {
     return Vec3b(rand()%255, rand()%255, rand()%255);
 }
 
-
+// same centroid updating fuction that is run on CPU
+// average all the pixels that belong to one cluster and assign the average to be the new centroid
 void updateCentroid(uchar* label, Vec3b* centroids, Mat original) {
 
     int cluster;
+    // use Vec3i(vector3 int) to hold a bigger number
     Vec3i sum[CLUSTER_NUM];
     for (int i = 0; i < CLUSTER_NUM; i++) {
         sum[i] = Vec3i(0, 0, 0);
     }
+    // dynamically allocating memory because CLUSTER_NUM changes at run time
     int* count = new int[CLUSTER_NUM];
     for (int i = 0; i < CLUSTER_NUM; i++) {
         count[i] = 0;
     }
+    // the addition part of averaging
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
             cluster = label[i*COLS + j];
@@ -106,7 +111,9 @@ void updateCentroid(uchar* label, Vec3b* centroids, Mat original) {
             count[cluster]++;
         }
     }
+    // the division part of averaging
     for (int i = 0; i < CLUSTER_NUM; i++) {
+        // randomize pixel if no pixels are assigned to the cluster
         if (count[i] == 0) {
             centroids[i] = randomPixel();
             continue;
@@ -116,6 +123,8 @@ void updateCentroid(uchar* label, Vec3b* centroids, Mat original) {
         sum[i].val[2] /= count[i];
         centroids[i] = sum[i];
     }
+
+    // be careful of memory leaks!
     delete[] count;
 }
 
@@ -126,31 +135,29 @@ int main(int argc, char** argv)
         printf("usage: ./gpu_fix filename(without '.jpg') #clusters #iterations\n");
         exit(-1);
     }
+
+    // read inputs from commandline
     string fn = argv[1];
     CLUSTER_NUM = stoi(argv[2]);
     ITERATION = stoi(argv[3]);
 
-    // check version c++11 or c++98
+    // check c++ version c++11 or c++98
     if( __cplusplus == 201103L ) std::cout << "C++11\n" ;
     else if( __cplusplus == 199711L ) std::cout << "C++98\n" ;
     else std::cout << "pre-standard C++\n" ;
 
-
-
-
+    // print image information to commandline
     printf("number of clusters: %i\n", CLUSTER_NUM);
     printf("number of iterations: %i\n", ITERATION);
     printf("mode: GPU\n");
-
-    // start time recording
-    //struct timeval stop, start;
-    //gettimeofday(&start, NULL);
     
-    srand(1);
-    //srand(time(NULL)); //reset the random seed for this particular run
+    // set random seed to a particular number to compare against CPU
+    //srand(1);
+    // randomize seed
+    srand(time(NULL));
     Mat h_image, h_image_final;
-    //string fn = "tree";
-    h_image = imread(fn + ".jpg", IMREAD_COLOR); // read the image
+    // use opencv to read the image
+    h_image = imread(fn + ".jpg", IMREAD_COLOR);
     if (!h_image.data) {
         printf("No image data \n");
         return -1;
@@ -159,12 +166,11 @@ int main(int argc, char** argv)
     ROWS = h_image.rows;
     COLS = h_image.cols;
 
-    //printf("file: " + fn);
-    printf("file size: %ix%i\n", ROWS, COLS);
+    printf("file size: %ix%i\n", COLS, ROWS);
 
     h_image_final.create(ROWS, COLS, CV_8UC1);
 
-    // split original image to RGB
+    // split original image to RGB channels
     Mat h_image_channel[3];
     split(h_image, h_image_channel);
     Mat h_image_final_channel[3];
@@ -177,17 +183,7 @@ int main(int argc, char** argv)
     Vec3b* h_centroids = (Vec3b*) malloc(CLUSTER_NUM * sizeof(Vec3b));
     for (int i = 0; i < CLUSTER_NUM; i++) {
         h_centroids[i] = randomPixel();
-        //printf("original %i : ", i);
-        //printf("%u, ", h_centroids[i].val[0]);
-        //printf("%u, ", h_centroids[i].val[1]);
-        //printf("%u\n", h_centroids[i].val[2]);
     }
-
-    // generate count array to initialize to 0
-    //int* h_count = (int*) malloc(CLUSTER_NUM * sizeof(int));
-    //for (int i = 0; i < CLUSTER_NUM; i++) {
-    //    h_count[i] = 0;
-    //}
 
     //generate a 2D array for labelling
     uchar* h_label = (uchar *) malloc(ROWS * COLS * sizeof(uchar));
@@ -197,9 +193,11 @@ int main(int argc, char** argv)
     unsigned char* d_image_B;
     unsigned char* d_image_G;
     unsigned char* d_image_R;
+    // dynamically allocating memory on the GPU
     cudaMalloc((void**) &d_image_B, ROWS * COLS * sizeof(unsigned char));
     cudaMalloc((void**) &d_image_G, ROWS * COLS * sizeof(unsigned char));
     cudaMalloc((void**) &d_image_R, ROWS * COLS * sizeof(unsigned char));
+    // copying data from CPU to GPU
     cudaMemcpy(d_image_B, h_image_channel[0].data, ROWS * COLS * sizeof(unsigned char), cudaMemcpyHostToDevice);
     cudaMemcpy(d_image_G, h_image_channel[1].data, ROWS * COLS * sizeof(unsigned char), cudaMemcpyHostToDevice);
     cudaMemcpy(d_image_R, h_image_channel[2].data, ROWS * COLS * sizeof(unsigned char), cudaMemcpyHostToDevice);
@@ -212,13 +210,6 @@ int main(int argc, char** argv)
     cudaMalloc((void**) &d_image_final_G, ROWS * COLS * sizeof(unsigned char));
     cudaMalloc((void**) &d_image_final_R, ROWS * COLS * sizeof(unsigned char));
 
-    /*
-    // --labels--    2D array unsigned char on GPU
-    unsigned char* d_label; 
-    // variable for data structure alignment when using cudaMallocPitch
-    size_t pitch_label;  
-    // access method: (data type*)((char*)d_label + Row * pitch) + Column;
-    cudaMallocPitch(&d_label, &pitch_label, COLS * sizeof(unsigned char), ROWS);*/
 
     // --labels--    1D array representing 2D array on GPU
     uchar* d_label;
@@ -228,29 +219,18 @@ int main(int argc, char** argv)
     Vec3b* d_centroids;
     cudaMalloc((void**) &d_centroids, CLUSTER_NUM * sizeof(Vec3b));
 
-    
-
-    // --newcentroids-- 1D array of unsign char on GPU to update centroids
-    //Vec3i* d_centroids_new;
-    //cudaMalloc((void**) &d_centroids_new, CLUSTER_NUM * sizeof(Vec3i));
-    //cudaMemcpy(d_centroids_new, h_centroids_new, CLUSTER_NUM * sizeof(Vec3i), cudaMemcpyHostToDevice);
-    // --count--        1D array of int for number of pixels in each cluster
-    //int* d_count;
-    //cudaMalloc((void**) &d_count, CLUSTER_NUM * sizeof(int));
-    //cudaMemcpy(d_count, h_count, CLUSTER_NUM * sizeof(int), cudaMemcpyHostToDevice);
+    // loop through different numbers of clusters and produce an image 
     CLUSTER_MAX = CLUSTER_NUM;
-
     for (int c = 1; c <= CLUSTER_MAX; c++) {
         CLUSTER_NUM = c;
+        // randomize centroid pixels
         for (int i = 0; i < c; i++) {
             h_centroids[i] = randomPixel();
-            //printf("original %i : ", i);
-            //printf("%u, ", h_centroids[i].val[0]);
-            //printf("%u, ", h_centroids[i].val[1]);
-            //printf("%u\n", h_centroids[i].val[2]);
         }
-        // the real k-means
+
+        // the real k-means: for a given number of clusters, update the centroid k times and output an image
         for (int k = 0; k < ITERATION; k++) {
+
             // copy from host to device 
             cudaMemcpy(d_centroids, h_centroids, CLUSTER_NUM * sizeof(Vec3b), cudaMemcpyHostToDevice);
 
@@ -267,7 +247,7 @@ int main(int argc, char** argv)
             cudaMemcpy(h_image_final_channel[1].data, d_image_final_G, ROWS * COLS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
             cudaMemcpy(h_image_final_channel[2].data, d_image_final_R, ROWS * COLS * sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-            //Merging the new channels into image
+            //Merging the new channels into the calculated image
             merge(h_image_final_channel, 3, h_image_final);
             //imwrite(fn+"/" + fn + "_gpu_fix" + to_string(k) + ".jpg",h_image_final);
 
@@ -278,18 +258,14 @@ int main(int argc, char** argv)
 
             updateCentroid(h_label, h_centroids, h_image);
         }
+
+        
         putText(h_image_final, to_string(c), Point(20, 20), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(200,200,250), 1, CV_AA);
-        //imwrite(fn + "/" + fn + "_gpu_fix_" + to_string(c) + ".jpg", h_image_final);
+        // writes to file for each iteration of image
+        imwrite(fn + "/" + fn + "_gpu_fix_" + to_string(c) + ".jpg", h_image_final);
 
     }
     imwrite(fn + "_gpu_time.jpg", h_image_final);
-
-    
-    //waitKey(0);
-
-    // done recording time
-    //gettimeofday(&stop, NULL);
-    //printf("took %lu\n", stop.tv_usec - start.tv_usec);
     return 0;
 }
 
